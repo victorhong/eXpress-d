@@ -5,6 +5,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.Traversable
 
 import joptsimple.{OptionSet, OptionParser}
+import java.lang.Integer
+import java.lang.Boolean
 
 import spark.{Accumulable, AccumulableParam}
 import spark.broadcast.{HttpBroadcast, Broadcast}
@@ -37,6 +39,13 @@ object ExpressRunner {
 
 
   def main(args: Array[String]) {
+    parser.accepts("hits-file-path").withOptionalArg()
+    parser.accepts("targets-file-path").withOptionalArg()
+    parser.accepts("should-use-bias").withOptionalArg().ofType(classOf[Boolean])
+    parser.accepts("num-iterations").withOptionalArg().ofType(classOf[Integer])
+    parser.accepts("should-cache").withOptionalArg().ofType(classOf[Boolean])
+    parser.accepts("num-partitions-for-alignments").withOptionalArg().ofType(classOf[Integer])
+    parser.accepts("debug-output").withOptionalArg()
 
     val optionSet = parser.parse(args.toSeq: _*)
 
@@ -71,6 +80,7 @@ object ExpressRunner {
     var fragmentsRDD: RDD[ExpressD.Fragment] = sc.textFile(hitsFilePath).map { line =>
         ExpressD.createFragment(line)
       }
+    println("created fragments from hits file")
 
     // Coalesce into N partitions, if arg is given
     if (numPartitions != -1) {
@@ -79,6 +89,8 @@ object ExpressRunner {
     
     var preprocessedTargetsRDD = sc.textFile(targetsFilePath).cache
     preprocessedTargetsRDD.count
+
+    println("cached targets file")
 
     var preprocessedTargetsArray = preprocessedTargetsRDD.collect
  
@@ -98,6 +110,7 @@ object ExpressRunner {
 
     var sortedTargets = targetsBuffer.toArray.sortWith((x, y) => x.id < y.id)
 
+    println("sorted targets")
 
     // Preprocessing
     var bcTargSeqs: Broadcast[Array[Array[Byte]]] = sc.broadcast(sortedTargets.map(target => target.seq))
